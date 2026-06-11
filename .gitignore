@@ -1,0 +1,20 @@
+# 依赖
+node_modules/
+
+# 敏感配置
+.env
+
+# 运行时数据
+data/*.json
+uploads/
+feedback/
+*.log
+
+# 临时文件
+/tmp/
+.DS_Store
+Thumbs.db
+
+# 备份
+*.tar.gz
+*.bak

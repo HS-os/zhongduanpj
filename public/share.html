@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>店铺陈列评价结果 - 分享</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .share-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      padding: 20px 30px;
+      text-align: center;
+    }
+    .share-header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 5px;
+    }
+    .share-header p {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    .created-at {
+      text-align: center;
+      color: #999;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="share-header">
+      <h1>🏪 店铺陈列评价结果</h1>
+      <p>已通过分享链接打开</p>
+    </header>
+
+    <main>
+      <!-- 加载状态 -->
+      <section class="loading-section" id="loadingSection">
+        <div class="spinner"></div>
+        <p>加载中...</p>
+      </section>
+
+      <!-- 结果展示 -->
+      <section class="result-section" id="resultSection" style="display: none;">
+        <p class="created-at" id="createdAt"></p>
+        
+        <h3>📸 店铺图片</h3>
+        <div class="image-preview">
+          <img id="previewImage" alt="店铺图片">
+        </div>
+
+        <div class="result-cards">
+          <!-- 陈列效果 -->
+          <div class="result-card" id="displayCard">
+            <div class="card-header">
+              <span class="card-icon">🎨</span>
+              <h3>陈列效果</h3>
+            </div>
+            <div class="rating-badge" id="displayRating">-</div>
+            <div class="card-content">
+              <p class="reason" id="displayReason"></p>
+              <ul class="details" id="displayDetails"></ul>
+            </div>
+          </div>
+
+          <!-- 店容店貌 -->
+          <div class="result-card" id="appearanceCard">
+            <div class="card-header">
+              <span class="card-icon">🏪</span>
+              <h3>店容店貌</h3>
+            </div>
+            <div class="rating-badge" id="appearanceRating">-</div>
+            <div class="card-content">
+              <p class="reason" id="appearanceReason"></p>
+              <ul class="details" id="appearanceDetails"></ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 总结 -->
+        <div class="summary-card" id="summaryCard">
+          <h3>📝 总体评价</h3>
+          <p id="summaryText"></p>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="action-buttons">
+          <a href="/" class="btn btn-primary">➕ 自己也来分析一个</a>
+        </div>
+      </section>
+
+      <!-- 错误提示 -->
+      <div class="error-toast" id="errorToast" style="display: none;">
+        <span id="errorMessage"></span>
+      </div>
+    </main>
+
+    <footer>
+      <p>🔒 数据本地存储，保障信息安全</p>
+    </footer>
+  </div>
+
+  <script>
+    // 获取分享ID
+    const shareId = window.location.pathname.split('/share/')[1];
+
+    if (!shareId) {
+      showError('无效的分享链接');
+    } else {
+      loadShareData();
+    }
+
+    async function loadShareData() {
+      try {
+        const response = await fetch(`/api/share/${shareId}`);
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || '加载失败');
+        }
+
+        displayResult(result.data);
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    function displayResult(data) {
+      document.getElementById('loadingSection').style.display = 'none';
+      document.getElementById('resultSection').style.display = 'block';
+
+      // 图片
+      document.getElementById('previewImage').src = data.imageUrl;
+
+      // 时间
+      const date = new Date(data.createdAt);
+      document.getElementById('createdAt').textContent = 
+        `分析时间: ${date.toLocaleString('zh-CN')}`;
+
+      const { analysis } = data;
+
+      // 陈列效果
+      setRating('display', analysis.display);
+      
+      // 店容店貌
+      setRating('appearance', analysis.appearance);
+
+      // 总结
+      document.getElementById('summaryText').textContent = analysis.summary || '暂无总结';
+    }
+
+    function setRating(type, data) {
+      const ratingMap = {
+        '好': 'good',
+        '较好': 'fair',
+        '一般': 'poor'
+      };
+
+      const badgeClass = ratingMap[data.rating] || 'fair';
+      
+      const ratingEl = document.getElementById(`${type}Rating`);
+      ratingEl.textContent = data.rating;
+      ratingEl.className = `rating-badge ${badgeClass}`;
+
+      document.getElementById(`${type}Reason`).textContent = data.reason || '';
+
+      const detailsEl = document.getElementById(`${type}Details`);
+      detailsEl.innerHTML = '';
+      if (data.details && data.details.length > 0) {
+        data.details.forEach(detail => {
+          const li = document.createElement('li');
+          li.textContent = detail;
+          detailsEl.appendChild(li);
+        });
+      }
+    }
+
+    function showError(message) {
+      document.getElementById('loadingSection').style.display = 'none';
+      const errorToast = document.getElementById('errorToast');
+      document.getElementById('errorMessage').textContent = message;
+      errorToast.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
