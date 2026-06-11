@@ -11,7 +11,19 @@
     <header>
       <h1>🏪 店铺陈列AI评价系统</h1>
       <p class="subtitle">3 维度独立评价 · 上传 1-3 张照片，AI 智能分析</p>
+      <button class="btn btn-small header-qr-btn" id="headerQrBtn" title="分享本系统给同事">📱 分享系统</button>
     </header>
+
+    <!-- 顶部二维码弹窗 -->
+    <div class="qr-modal" id="qrModal" style="display:none">
+      <div class="qr-modal-content">
+        <span class="qr-modal-close" id="qrModalClose">×</span>
+        <h3>扫码访问系统</h3>
+        <canvas id="qrModalCanvas" width="280" height="280"></canvas>
+        <p class="qr-hint">用手机相机或微信扫一扫</p>
+        <button class="btn btn-small" id="qrModalDownload">下载二维码</button>
+      </div>
+    </div>
 
     <main>
       <!-- 1. 陈列效果 -->
@@ -181,6 +193,12 @@
         <div class="share-link">
           <input type="text" id="shareLinkInput" readonly>
           <button class="btn btn-small" id="copyLinkBtn">复制</button>
+          <button class="btn btn-small" id="qrBtn">📱 二维码</button>
+          <button class="btn btn-small" id="downloadQrBtn" style="display:none">下载二维码</button>
+        </div>
+        <div class="qr-container" id="qrContainer" style="display:none">
+          <canvas id="qrCanvas" width="220" height="220"></canvas>
+          <p class="qr-hint">手机扫码查看评价报告</p>
         </div>
       </section>
 

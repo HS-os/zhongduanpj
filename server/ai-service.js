@@ -248,6 +248,69 @@ const PROMPTS = {
 };
 
 // 后处理纠偏：防止 AI 过于保守
+
+// 清洗 AI 输出的 rating（处理 "好|较好|一般"、数组、空值、错别字等情况）
+function sanitizeRating(rawRating) {
+  if (rawRating === null || rawRating === undefined) return '一般';
+  let r = String(rawRating).trim();
+
+  // 处理数组（取第一个）
+  if (Array.isArray(rawRating) && rawRating.length > 0) {
+    r = String(rawRating[0]).trim();
+  }
+
+  // 处理 "好|较好|一般" 这种（|分隔）→ 取第一个
+  // 处理 "好|较好|一般" 这种多选格式（| / /、 或 都算）
+  // AI 不确定时会列出多个选项 → 默认返回 "一般"（中间档，最保守）
+  if (r.includes('|') || r.includes('/') || r.includes('、') || r.includes('或')) {
+    const parts = r.split(/[|/、或]/).map(s => s.trim()).filter(Boolean);
+    console.log(`[sanitize] AI 返回多选: ${r} → 默认 "一般"`);
+    return '一般';
+  }
+
+  // 处理 "/" "、" "或" 分隔
+  if (r.includes('/') || r.includes('、') || r.includes('或')) {
+    const parts = r.split(/[\/、或]/).map(s => s.trim()).filter(Boolean);
+    if (parts.length > 0) r = parts[0];
+  }
+
+  // 标准化：去掉空白和标点
+  r = r.replace(/[\s　.,;:!?。，；：！？、]/g, '');
+
+  // 错别字纠正
+  const fixMap = {
+    '很好': '好',
+    '非常好': '好',
+    '不错': '好',
+    '优秀': '好',
+    '良好': '好',
+    '棒': '好',
+    '可以': '较好',
+    '还行': '较好',
+    '尚可': '较好',
+    '普通': '一般',
+    '凑合': '一般',
+    '不太好': '一般',
+    '很差': '差',
+    '糟糕': '差',
+    '很差劲': '差'
+  };
+  if (fixMap[r]) r = fixMap[r];
+
+  // 最终白名单校验
+  const valid = ['好', '较好', '一般', '差'];
+  if (valid.includes(r)) return r;
+
+  // 包含关系（"较好一些" → "较好"）
+  for (const v of valid) {
+    if (r.includes(v)) return v;
+  }
+
+  // 不匹配任何 → 默认 "一般"
+  return '一般';
+}
+
+
 function boostRating(rating, reason, category) {
   if (!reason) return rating;
   const r = String(rating);
@@ -355,7 +418,7 @@ async function _callAI(category, imageBase64, mimeType) {
           const reasonMatch = rawJson.match(/(?:reason|原因|说明)["':\s]*["']?([^"'}*]+)["']?/);
           if (ratingMatch || reasonMatch) {
             result = {
-              rating: (ratingMatch && ratingMatch[1].trim()) || '一般',
+              rating: sanitizeRating(ratingMatch && ratingMatch[1].trim()),
               reason: (reasonMatch && reasonMatch[1].trim()) || 'AI响应解析出错，但提及了评价'
             };
             console.log(`[${category}] 退而次之：从文本提取 rating=${result.rating}`);
@@ -369,7 +432,7 @@ async function _callAI(category, imageBase64, mimeType) {
       return { rating: '一般', reason: 'AI响应解析失败', details: [] };
     }
 
-    const finalRating = boostRating(result.rating || '一般', result.reason || '', category);
+    const finalRating = boostRating(sanitizeRating(result.rating), result.reason || '', category);
 
     return {
       rating: finalRating,

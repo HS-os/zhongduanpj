@@ -59,6 +59,16 @@ function showError(message) {
   setTimeout(() => { toast.style.display = 'none'; }, 3000);
 }
 
+// ============ 反馈按钮复位 ============
+// 在所有清空/重置场景中调用，确保按钮回到初始状态
+function resetFeedbackButton(type) {
+  const btn = document.querySelector(`.btn-feedback[data-type="${type}"]`);
+  if (!btn) return;
+  btn.disabled = false;
+  btn.textContent = '提交校正';
+  btn.style.background = '';
+}
+
 function ratingClass(rating) {
   return {
     '好': 'good',
@@ -238,7 +248,10 @@ function setupDimension(type) {
 
       state[type].result = data.data;
       if (!resultId) resultId = data.resultId;
-      
+
+      // 新一次评价前先复位反馈按钮（防止“已记录”状态遗留）
+      resetFeedbackButton(type);
+
       // 显示评分
       ratingEl.textContent = data.data.rating;
       ratingEl.className = `rating-badge ${ratingClass(data.data.rating)}`;
@@ -275,6 +288,7 @@ function setupDimension(type) {
     resultEl.style.display = 'none';
     const fb = document.getElementById(`${type}Feedback`);
     if (fb) fb.style.display = 'none';
+    resetFeedbackButton(type);
     renderPreview();
     updateSummary();
   }
@@ -349,10 +363,8 @@ document.querySelectorAll('.btn-feedback').forEach(btn => {
         document.getElementById(type + 'AnalyzeBtn').disabled = true;
         updateSummary();
 
-        // 恢复按钮
-        btn.disabled = false;
-        btn.textContent = '提交校正';
-        btn.style.background = '';
+        // 恢复按钮（多加个复位调用保证）
+        resetFeedbackButton(type);
       }, 1500);
     } catch (error) {
       showError(error.message);
@@ -374,6 +386,8 @@ document.getElementById('resetAllBtn').addEventListener('click', () => {
     document.getElementById(`${d}DropZone`).style.display = 'block';
     document.getElementById(`${d}ClearBtn`).style.display = 'none';
     document.getElementById(`${d}AnalyzeBtn`).disabled = true;
+    // 复位反馈按钮（清除“已记录”状态）
+    resetFeedbackButton(d);
   });
   resultId = null;
   document.getElementById('summarySection').style.display = 'none';
@@ -407,4 +421,85 @@ document.getElementById('copyLinkBtn').addEventListener('click', () => {
     btn.textContent = '已复制!';
     setTimeout(() => { btn.textContent = '复制'; }, 2000);
   }).catch(() => showError('复制失败，请手动复制'));
+});
+
+// ============ 二维码生成 ============
+// 简单的 QR Code 生成（不依赖外部库）
+// 基于 qrcode-generator 算法的简化实现
+function generateQR(text, canvas) {
+  // 使用在线 API（生产环境可以替换为本地 qrcode 库）
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=10&data=${encodeURIComponent(text)}`;
+  img.onload = () => {
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(img, 0, 0, size, size);
+  };
+  img.onerror = () => {
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = '#f8f8f8';
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = '#999';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('二维码生成失败', size / 2, size / 2 - 10);
+    ctx.fillText('请直接复制链接', size / 2, size / 2 + 10);
+  };
+  img.src = apiUrl;
+}
+
+document.getElementById('qrBtn').addEventListener('click', () => {
+  const link = document.getElementById('shareLinkInput').value;
+  if (!link) return;
+  const qrContainer = document.getElementById('qrContainer');
+  const downloadBtn = document.getElementById('downloadQrBtn');
+  qrContainer.style.display = 'block';
+  downloadBtn.style.display = 'inline-block';
+  generateQR(link, document.getElementById('qrCanvas'));
+});
+
+document.getElementById('downloadQrBtn').addEventListener('click', () => {
+  const canvas = document.getElementById('qrCanvas');
+  const link = document.createElement('a');
+  link.download = `share-qr-${Date.now()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+// 下载顶部二维码
+document.getElementById('qrModalDownload').addEventListener('click', () => {
+  const canvas = document.getElementById('qrModalCanvas');
+  if (!canvas) return;
+  const link = document.createElement('a');
+  link.download = `system-qr-${Date.now()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+// 主页顶部也提供二维码入口（生成首页 URL）
+window.addEventListener('DOMContentLoaded', () => {
+  // 如果主页有 #headerQrBtn，加个事件
+  const headerQr = document.getElementById('headerQrBtn');
+  if (headerQr) {
+    headerQr.addEventListener('click', () => {
+      const url = window.location.origin;
+      const modal = document.getElementById('qrModal');
+      const canvas = document.getElementById('qrModalCanvas');
+      if (modal && canvas) {
+        modal.style.display = 'flex';
+        generateQR(url, canvas);
+      }
+    });
+  }
+  const modalClose = document.getElementById('qrModalClose');
+  if (modalClose) {
+    modalClose.addEventListener('click', () => {
+      const modal = document.getElementById('qrModal');
+      if (modal) modal.style.display = 'none';
+    });
+  }
 });
